@@ -10,7 +10,7 @@ from torchvision import transforms
 model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
 model.fc = nn.Linear(model.fc.in_features, 3)  # Assuming 3 classes
 model.eval()  # Set model to evaluation mode
-device = 'cpu'
+device = torch.device('cpu')
 #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model.to(device)
 
