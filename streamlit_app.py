@@ -2,7 +2,7 @@ import PIL
 import streamlit as st
 import torch
 from torchvision import transforms
-!pip install opencv-python
+#!pip install opencv-python
 import cv2
 import torch.nn as nn
 import numpy as np
