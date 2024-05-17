@@ -6,3 +6,5 @@ scikit-learn
 tqdm
 matplotlib
 pandas
+numpy
+opencv-python
