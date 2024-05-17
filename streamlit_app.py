@@ -1,60 +1,60 @@
 import streamlit as st
 import torch
-from PIL import Image
-import numpy as np
-import torchvision
-import torch.nn as nn
 from torchvision import transforms
+import cv2
+import torch.nn as nn
+import numpy as np
+import pandas as pd
 
-# Model configuration
-model = torchvision.models.resnet18(weights='IMAGENET1K_V1')
-model.fc = nn.Linear(model.fc.in_features, 3)  # Assuming 3 classes
+# Model loading (assuming you have a saved model file)
+model_path = "model/saved_model.pt"  # Replace with your model path
+model = torch.hub.load('pytorch/vision:v0.13.0', 'resnet18', pretrained=False)  # Load pre-trained model
+model.fc = nn.Linear(model.fc.in_features, 3)  # Assuming 3 classes (Healthy, Moderate, Severe)
+# model.load_state_dict(torch.load(model_path))
+model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
 model.eval()  # Set model to evaluation mode
-device = torch.device('cpu')
-#device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model.to(device)
 
-# Load the saved model
-model_path = "model/saved_model.pt"
-model.load_state_dict(torch.load(model_path))
-
-# Define image transformation for consistency
+# Define image transformation (ensure normalization matches training)
 transform = transforms.Compose([
-    transforms.Grayscale(num_output_channels=3),
+    transforms.Grayscale(num_output_channels=3),  # Assuming grayscale in training
     transforms.Resize((256, 256)),
-    transforms.CenterCrop((224, 224)),
     transforms.ToTensor(),
-    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+    transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])  # Replace with training values
 ])
 
-# Set app title and description
-st.title("Knee Osteoarthritis Classification")
-st.write("Upload a knee X-ray image to classify its grade of Osteoarthritis.")
+def predict_osteoarthritis(image):
+  """
+  Preprocesses and predicts osteoarthritis grade on an image.
 
+  Args:
+      image: A PIL image object.
 
-# Upload image widget
-uploaded_image = st.file_uploader("Choose an image:", type="jpg,png")
-
-if uploaded_image is not None:
-  # Read the uploaded image
-  image = Image.open(uploaded_image)
-
-  # Preprocess the image
-  image = transform(image).unsqueeze(0).to(device)
-
-  # Make prediction
+  Returns:
+      A tuple containing the predicted class and probability vector.
+  """
+  image = transform(image)
+  image = image.unsqueeze(0)  # Add batch dimension
   with torch.no_grad():
     output = model(image)
-    _, predicted = torch.max(output.data, 1)
-    predicted_class = int(predicted.cpu().numpy()[0])
+    probs = torch.nn.functional.softmax(output, dim=1)
+    predicted_class = torch.argmax(probs, dim=1).item()
+  return predicted_class, probs.squeeze().numpy()  # Return class and probability vector
 
-  # Display the uploaded image
-  st.image(image.cpu().squeeze(0).permute(1, 2, 0).numpy(), width=256)
+st.title("Osteoarthritis Classification")
+st.write("Upload an X-ray image to predict the osteoarthritis grade.")
 
-  # Map predicted class to label
-  grade_labels = ["Healthy", "Moderate", "Severe"]
-  predicted_label = grade_labels[predicted_class]
+uploaded_file = st.file_uploader("Choose an image...")
+if uploaded_file is not None:
+  image = cv2.imdecode(np.frombuffer(uploaded_file.read(), np.uint8), cv2.IMREAD_COLOR)
+  image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # Convert to RGB for PyTorch
+  st.image(image, caption="Uploaded Image", use_column_width=True)
 
-  # Display prediction result
-  st.success(f"Predicted Grade: {predicted_label}")
+  # Preprocess and predict
+  predicted_class, probabilities = predict_osteoarthritis(image)
+  grade_labels = ["Healthy", "Moderate", "Severe"]  # Assuming class labels
 
+  # Display predictions
+  st.write(f"Predicted Grade: {grade_labels[predicted_class]}")
+  st.write(f"Probabilities:")
+  for i, label in enumerate(grade_labels):
+    st.write(f"- {label}: {probabilities[i]:.4f}")
