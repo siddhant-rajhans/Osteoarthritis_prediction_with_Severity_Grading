@@ -1,3 +1,4 @@
+import PIL
 import streamlit as st
 import torch
 from torchvision import transforms
@@ -32,13 +33,16 @@ def predict_osteoarthritis(image):
   Returns:
       A tuple containing the predicted class and probability vector.
   """
+  # Convert to PIL Image if it's a NumPy array
+  if isinstance(image, np.ndarray):
+    image = PIL.Image.fromarray(image)  # Convert NumPy array to PIL Image
   image = transform(image)
   image = image.unsqueeze(0)  # Add batch dimension
   with torch.no_grad():
     output = model(image)
     probs = torch.nn.functional.softmax(output, dim=1)
     predicted_class = torch.argmax(probs, dim=1).item()
-  return predicted_class, probs.squeeze().numpy()  # Return class and probability vector
+  return predicted_class, probs.squeeze().numpy() * 100 # Return class and probability vector
 
 st.title("Osteoarthritis Classification")
 st.write("Upload an X-ray image to predict the osteoarthritis grade.")
@@ -57,4 +61,4 @@ if uploaded_file is not None:
   st.write(f"Predicted Grade: {grade_labels[predicted_class]}")
   st.write(f"Probabilities:")
   for i, label in enumerate(grade_labels):
-    st.write(f"- {label}: {probabilities[i]:.4f}")
+    st.write(f"- {label}: {probabilities[i]:.2f}")
